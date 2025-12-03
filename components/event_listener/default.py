@@ -26,7 +26,7 @@ class DefaultEventListener(EventListener):
 
         # 初始化音乐卡片发送器
         # 可以从环境变量或配置文件读取NapCat配置
-        self.napcat_http_url = self.plugin.get_config('napcat_url', self.napcat_http_url)
+        self.napcat_http_url = self.plugin.get_config().get('napcat_url', self.napcat_http_url)
         napcat_url = os.getenv('NAPCAT_HTTP_URL', self.napcat_http_url)
         napcat_token = os.getenv('NAPCAT_ACCESS_TOKEN', self.napcat_access_token)
 
@@ -39,6 +39,7 @@ class DefaultEventListener(EventListener):
         @self.handler(events.GroupMessageReceived)
         async def handler(event_context: context.EventContext):
             # 获取消息内容
+            # print(event_context.event)
             message_chain = event_context.event.message_chain
             message = "".join(
                 element.text for element in message_chain
@@ -47,7 +48,7 @@ class DefaultEventListener(EventListener):
             
             # 获取用户ID
             user_id = str(event_context.event.sender_id)
-            
+            launcher_type = event_context.event.launcher_type
             # 检查是否是选择歌曲的数字
             if user_id in self.user_searches and message.isdigit():
                 # 用户在选择歌曲
@@ -75,12 +76,13 @@ class DefaultEventListener(EventListener):
                     music_url = music_url.strip(' `')
 
                     # 判断消息来源（群聊还是私聊）
-                    if isinstance(event_context.event, events.GroupMessageReceived):
+                    if launcher_type == 'group':
                         target_type = 'group'
-                        target_id = event_context.event.group_id
+                        target_id = str(event_context.event.launcher_id)
                     else:
                         target_type = 'private'
-                        target_id = event_context.event.sender_id
+                        target_id = user_id
+                    
 
                     # 尝试通过NapCat发送音乐卡片
                     if self.music_card_sender:
