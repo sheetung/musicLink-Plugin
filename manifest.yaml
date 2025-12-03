@@ -4,7 +4,7 @@ metadata:
   author: sheetung
   name: musicLink
   repository: 'https://github.com/sheetung/musicLink-Plugin'
-  version: 0.1.1
+  version: 0.2.1
   description:
     en_US: downloads high quality music plugin
     zh_Hans: 下载高音质音乐插件
