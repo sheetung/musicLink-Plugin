@@ -4,22 +4,42 @@ from __future__ import annotations
 
 import asyncio
 import requests
+import os
 from langbot_plugin.api.definition.components.common.event_listener import EventListener
 from langbot_plugin.api.entities import events, context
 from langbot_plugin.api.entities.builtin.platform import message as platform_message
 from langbot_plugin.api.entities.builtin.provider import message as provider_message
+# 导入音乐卡片发送工具
+from utils.music_card import MusicCardSender
 
 class DefaultEventListener(EventListener):
     # 存储用户的搜索结果和状态
     user_searches = {}
+    # 音乐卡片发送器实例
+    music_card_sender = None
+    # NapCat配置
+    napcat_http_url = "http://127.0.0.1:3000"  # NapCat HTTP API地址默认值
+    napcat_access_token = None  # 访问令牌（如果需要的话）
     
     async def initialize(self):
         await super().initialize()
+
+        # 初始化音乐卡片发送器
+        # 可以从环境变量或配置文件读取NapCat配置
+        self.napcat_http_url = self.plugin.get_config().get('napcat_url', self.napcat_http_url)
+        napcat_url = os.getenv('NAPCAT_HTTP_URL', self.napcat_http_url)
+        napcat_token = os.getenv('NAPCAT_ACCESS_TOKEN', self.napcat_access_token)
+
+        self.music_card_sender = MusicCardSender(
+            http_url=napcat_url,
+            access_token=napcat_token
+        )
         
         @self.handler(events.PersonMessageReceived)
         @self.handler(events.GroupMessageReceived)
         async def handler(event_context: context.EventContext):
             # 获取消息内容
+            # print(event_context.event)
             message_chain = event_context.event.message_chain
             message = "".join(
                 element.text for element in message_chain
@@ -28,7 +48,7 @@ class DefaultEventListener(EventListener):
             
             # 获取用户ID
             user_id = str(event_context.event.sender_id)
-            
+            launcher_type = event_context.event.launcher_type
             # 检查是否是选择歌曲的数字
             if user_id in self.user_searches and message.isdigit():
                 # 用户在选择歌曲
@@ -50,25 +70,73 @@ class DefaultEventListener(EventListener):
                     cover_url = data.get('cover', '')
                     music_url = data.get('music_url', '')
                     link_ = data.get('link', '')
-                    
+
                     # 清理可能包含的额外字符（如空格和反引号）
                     cover_url = cover_url.strip(' `')
                     music_url = music_url.strip(' `')
+
+                    # 判断消息来源（群聊还是私聊）
+                    if launcher_type == 'group':
+                        target_type = 'group'
+                        target_id = str(event_context.event.launcher_id)
+                    else:
+                        target_type = 'private'
+                        target_id = user_id
                     
-                    
-                    # 发送歌曲信息
-                    # 使用音乐下载链接作为在线试听链接
-                    listen_url = link_
-                    
-                    await event_context.reply(
-                        platform_message.MessageChain([
-                            platform_message.Image(url=cover_url),
-                            platform_message.Plain(text=f"歌曲：{song_info['song_name']}\n"),
-                            platform_message.Plain(text=f"歌手：{song_info['song_singer']}\n"),
-                            platform_message.Plain(text=f"在线试听链接：{listen_url}\n"),
-                            platform_message.Plain(text=f"音乐下载链接：{music_url}\n"),
-                        ])
-                    )
+
+                    # 尝试通过NapCat发送音乐卡片
+                    if self.music_card_sender:
+                        try:
+                            # 发送音乐卡片
+                            card_result = await self.music_card_sender.send_custom_music_card(
+                                target_id=target_id,
+                                target_type=target_type,
+                                title=f"{song_info['song_name']} - {song_info['song_singer']}",
+                                audio_url=music_url,
+                                jump_url=link_,
+                                image_url=cover_url,
+                                content=f"由 musicLink 提供"
+                            )
+
+                            if card_result.get('success'):
+                                # 音乐卡片发送成功，发送额外的文字信息
+                                await event_context.reply(
+                                    platform_message.MessageChain([
+                                        platform_message.Plain(text=f"✅ 音乐卡片已发送\n"),
+                                        platform_message.Plain(text=f"📱 备用下载链接：{music_url}\n"),
+                                    ])
+                                )
+                            else:
+                                # 卡片发送失败，回退到传统方式
+                                raise Exception(f"Music card send failed: {card_result.get('error', 'Unknown')}")
+                        except Exception as e:
+                            # 如果卡片发送失败，使用传统方式发送
+                            print(f"音乐卡片发送失败，使用传统方式: {str(e)}")
+                            # 使用音乐下载链接作为在线试听链接
+                            listen_url = link_
+
+                            await event_context.reply(
+                                platform_message.MessageChain([
+                                    platform_message.Image(url=cover_url),
+                                    platform_message.Plain(text=f"歌曲：{song_info['song_name']}\n"),
+                                    platform_message.Plain(text=f"歌手：{song_info['song_singer']}\n"),
+                                    platform_message.Plain(text=f"在线试听链接：{listen_url}\n"),
+                                    platform_message.Plain(text=f"音乐下载链接：{music_url}\n"),
+                                ])
+                            )
+                    else:
+                        # 没有配置音乐卡片发送器，使用传统方式
+                        listen_url = link_
+
+                        await event_context.reply(
+                            platform_message.MessageChain([
+                                platform_message.Image(url=cover_url),
+                                platform_message.Plain(text=f"歌曲：{song_info['song_name']}\n"),
+                                platform_message.Plain(text=f"歌手：{song_info['song_singer']}\n"),
+                                platform_message.Plain(text=f"在线试听链接：{listen_url}\n"),
+                                platform_message.Plain(text=f"音乐下载链接：{music_url}\n"),
+                            ])
+                        )
                     event_context.prevent_default()
                 else:
                     await event_context.reply(
