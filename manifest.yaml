@@ -13,7 +13,14 @@ metadata:
     zh_Hans: musicLink
   icon: assets/icon.svg
 spec:
-  config: []
+  config: 
+    - name: napcat_url
+      type: string
+      label:
+        en_US: 'napcat http API URL'
+        zh_Hans: 'napcat http API 地址'
+      required: false
+      default: 'http://127.0.0.1:3000'
   components:
     EventListener:
       fromDirs:
