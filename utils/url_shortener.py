@@ -15,12 +15,6 @@ class URLShortener:
         # 可用的短链接服务列表，按优先级排序
         self.services = [
             {
-                'name': 'tinyurl',
-                'url': 'http://tinyurl.com/api-create.php',
-                'method': 'get',
-                'params': lambda long_url: {'url': long_url}
-            },
-            {
                 'name': 'is.gd',
                 'url': 'https://is.gd/create.php',
                 'method': 'post',

@@ -102,7 +102,8 @@ class DefaultEventListener(EventListener):
                             if card_result.get('success'):
                                 # 音乐卡片发送成功，发送额外的文字信息
                                 # 缩短备用下载链接
-                                short_music_url = await shorten_url(music_url)
+                                # short_music_url = await shorten_url(music_url)
+                                short_music_url = music_url
                                 await event_context.reply(
                                     platform_message.MessageChain([
                                         platform_message.Plain(text=f"✅ 音乐卡片已发送\n"),
@@ -118,8 +119,10 @@ class DefaultEventListener(EventListener):
                             # 使用音乐下载链接作为在线试听链接
                             listen_url = link_
                             # 缩短下载链接
-                            short_music_url = await shorten_url(music_url)
-                            short_listen_url = await shorten_url(listen_url)
+                            # short_music_url = await shorten_url(music_url)
+                            # short_listen_url = await shorten_url(listen_url)
+                            short_music_url = music_url
+                            short_listen_url = listen_url
 
                             await event_context.reply(
                                 platform_message.MessageChain([
@@ -134,8 +137,10 @@ class DefaultEventListener(EventListener):
                         # 没有配置音乐卡片发送器，使用传统方式
                         listen_url = link_
                         # 缩短链接
-                        short_music_url = await shorten_url(music_url)
-                        short_listen_url = await shorten_url(listen_url)
+                        # short_music_url = await shorten_url(music_url)
+                        # short_listen_url = await shorten_url(listen_url)
+                        short_music_url = music_url
+                        short_listen_url = listen_url
 
                         await event_context.reply(
                             platform_message.MessageChain([
