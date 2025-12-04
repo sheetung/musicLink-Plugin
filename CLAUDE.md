@@ -39,8 +39,12 @@ pip install -r requirements.txt
 
 ### Dependencies
 - `langbot-plugin`: Core plugin SDK
-- `requests`: HTTP client for API calls
-- `aiohttp`: Async HTTP client for NapCat music card sending
+- `aiohttp`: Async HTTP client for all network requests and NapCat music card sending
+
+### Recent Improvements
+- **Async Network Requests**: Replaced synchronous `requests` with async `aiohttp` for better performance
+- **URL Shortening**: Integrated multiple short URL services (TinyURL, is.gd, v.gd) to shorten download links
+- **Enhanced User Experience**: Backup download links now use shortened URLs for better readability
 
 ## Important Implementation Details
 

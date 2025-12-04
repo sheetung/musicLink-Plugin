@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-import requests
+import aiohttp
 import os
 from langbot_plugin.api.definition.components.common.event_listener import EventListener
 from langbot_plugin.api.entities import events, context
 from langbot_plugin.api.entities.builtin.platform import message as platform_message
 from langbot_plugin.api.entities.builtin.provider import message as provider_message
-# 导入音乐卡片发送工具
+# 导入音乐卡片发送工具和短链接服务
 from utils.music_card import MusicCardSender
+from utils.url_shortener import shorten_url
 
 class DefaultEventListener(EventListener):
     # 存储用户的搜索结果和状态
@@ -100,10 +101,12 @@ class DefaultEventListener(EventListener):
 
                             if card_result.get('success'):
                                 # 音乐卡片发送成功，发送额外的文字信息
+                                # 缩短备用下载链接
+                                short_music_url = await shorten_url(music_url)
                                 await event_context.reply(
                                     platform_message.MessageChain([
                                         platform_message.Plain(text=f"✅ 音乐卡片已发送\n"),
-                                        platform_message.Plain(text=f"📱 备用下载链接：{music_url}\n"),
+                                        platform_message.Plain(text=f"📱 备用下载链接：{short_music_url}\n"),
                                     ])
                                 )
                             else:
@@ -114,27 +117,33 @@ class DefaultEventListener(EventListener):
                             print(f"音乐卡片发送失败，使用传统方式: {str(e)}")
                             # 使用音乐下载链接作为在线试听链接
                             listen_url = link_
+                            # 缩短下载链接
+                            short_music_url = await shorten_url(music_url)
+                            short_listen_url = await shorten_url(listen_url)
 
                             await event_context.reply(
                                 platform_message.MessageChain([
                                     platform_message.Image(url=cover_url),
                                     platform_message.Plain(text=f"歌曲：{song_info['song_name']}\n"),
                                     platform_message.Plain(text=f"歌手：{song_info['song_singer']}\n"),
-                                    platform_message.Plain(text=f"在线试听链接：{listen_url}\n"),
-                                    platform_message.Plain(text=f"音乐下载链接：{music_url}\n"),
+                                    platform_message.Plain(text=f"在线试听链接：{short_listen_url}\n"),
+                                    platform_message.Plain(text=f"音乐下载链接：{short_music_url}\n"),
                                 ])
                             )
                     else:
                         # 没有配置音乐卡片发送器，使用传统方式
                         listen_url = link_
+                        # 缩短链接
+                        short_music_url = await shorten_url(music_url)
+                        short_listen_url = await shorten_url(listen_url)
 
                         await event_context.reply(
                             platform_message.MessageChain([
                                 platform_message.Image(url=cover_url),
                                 platform_message.Plain(text=f"歌曲：{song_info['song_name']}\n"),
                                 platform_message.Plain(text=f"歌手：{song_info['song_singer']}\n"),
-                                platform_message.Plain(text=f"在线试听链接：{listen_url}\n"),
-                                platform_message.Plain(text=f"音乐下载链接：{music_url}\n"),
+                                platform_message.Plain(text=f"在线试听链接：{short_listen_url}\n"),
+                                platform_message.Plain(text=f"音乐下载链接：{short_music_url}\n"),
                             ])
                         )
                     event_context.prevent_default()
@@ -207,29 +216,30 @@ class DefaultEventListener(EventListener):
                 'type': 'json',
                 'num': '10'
             }
-            
-            # 发送请求
-            response = requests.get(url, params=params, timeout=10)
-            response.raise_for_status()  # 检查HTTP状态码
-            
-            # 解析JSON
-            data = response.json()
-            # print(f"搜索音乐API响应: {data}")
-            # 检查状态码和数据格式
-            if data.get('code') == 200 and isinstance(data.get('data'), list):
-                # 确保返回的每个元素都有必要的字段
-                valid_songs = []
-                for song in data.get('data', []):
-                    if isinstance(song, dict) and all(k in song for k in ['n', 'song_title', 'song_singer']):
-                        # 重命名字段以保持一致性
-                        valid_songs.append({
-                            'n': song['n'],
-                            'song_name': song['song_title'],
-                            'song_singer': song['song_singer']
-                        })
-                return valid_songs
-            else:
-                return []
+
+            # 发送异步请求
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                    response.raise_for_status()  # 检查HTTP状态码
+
+                    # 解析JSON
+                    data = await response.json()
+                    # print(f"搜索音乐API响应: {data}")
+                    # 检查状态码和数据格式
+                    if data.get('code') == 200 and isinstance(data.get('data'), list):
+                        # 确保返回的每个元素都有必要的字段
+                        valid_songs = []
+                        for song in data.get('data', []):
+                            if isinstance(song, dict) and all(k in song for k in ['n', 'song_title', 'song_singer']):
+                                # 重命名字段以保持一致性
+                                valid_songs.append({
+                                    'n': song['n'],
+                                    'song_name': song['song_title'],
+                                    'song_singer': song['song_singer']
+                                })
+                        return valid_songs
+                    else:
+                        return []
         except Exception as e:
             print(f"搜索音乐出错: {str(e)}")
             return []
@@ -244,10 +254,12 @@ class DefaultEventListener(EventListener):
                 'type': 'json',
                 'br': '1'  # 使用最高音质
             }
-            
-            response = requests.get(url, params=params, timeout=10)
-            response.raise_for_status()
-            return response.json()
+
+            # 发送异步请求
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                    response.raise_for_status()
+                    return await response.json()
         except Exception as e:
             print(f"获取歌曲详情出错: {str(e)}")
             # 返回默认结构，确保即使出错也能继续运行
