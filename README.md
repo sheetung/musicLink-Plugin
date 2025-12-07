@@ -16,6 +16,10 @@ LangBot的点歌插件，可以选择音乐并下载高质量音乐。仅供开�
 | :--------: | :--: | :----: |
 | OneBot V11 |  ✅   | Napcat |
 
+## 更新历史
+
+- V0.2.6 完成初始版本及基础功能开发
+
 ## 问题反馈及功能开发
 
 [![QQ群](https://img.shields.io/badge/QQ群-965312424-green)](https://qm.qq.com/cgi-bin/qm/qr?k=en97YqjfYaLpebd9Nn8gbSvxVrGdIXy2&jump_from=webapi&authKey=41BmkEjbGeJ81jJNdv7Bf5EDlmW8EHZeH7/nktkXYdLGpZ3ISOS7Ur4MKWXC7xIx)

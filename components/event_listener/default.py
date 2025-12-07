@@ -12,12 +12,15 @@ from langbot_plugin.api.entities.builtin.provider import message as provider_mes
 # 导入音乐卡片发送工具和短链接服务
 from utils.music_card import MusicCardSender
 from utils.url_shortener import shorten_url
+from utils.forward_message import ForwardMessageSender
 
 class DefaultEventListener(EventListener):
     # 存储用户的搜索结果和状态
     user_searches = {}
     # 音乐卡片发送器实例
     music_card_sender = None
+    # 合并转发消息发送器实例
+    forward_message_sender = None
     # NapCat配置
     napcat_http_url = "http://127.0.0.1:3000"  # NapCat HTTP API地址默认值
     napcat_access_token = None  # 访问令牌（如果需要的话）
@@ -32,6 +35,12 @@ class DefaultEventListener(EventListener):
         napcat_token = os.getenv('NAPCAT_ACCESS_TOKEN', self.napcat_access_token)
 
         self.music_card_sender = MusicCardSender(
+            http_url=napcat_url,
+            access_token=napcat_token
+        )
+
+        # 初始化合并转发消息发送器
+        self.forward_message_sender = ForwardMessageSender(
             http_url=napcat_url,
             access_token=napcat_token
         )
@@ -100,16 +109,60 @@ class DefaultEventListener(EventListener):
                             )
 
                             if card_result.get('success'):
-                                # 音乐卡片发送成功，发送额外的文字信息
-                                # 缩短备用下载链接
-                                # short_music_url = await shorten_url(music_url)
-                                short_music_url = music_url
-                                await event_context.reply(
-                                    platform_message.MessageChain([
-                                        platform_message.Plain(text=f"✅ 音乐卡片已发送\n"),
-                                        platform_message.Plain(text=f"📱 备用下载链接：{short_music_url}\n"),
-                                    ])
-                                )
+                                # 音乐卡片发送成功，使用合并转发发送备用下载链接
+                                # 仅在群聊时发送合并转发，私聊仍使用普通消息
+                                if target_type == 'group':
+                                    # 构建合并转发消息
+                                    messages = [
+                                        {
+                                            "content": [
+                                                {"type": "text", "data": {"text": "✅ 音乐卡片已发送"}},
+                                            ]
+                                        },
+                                        {
+                                            "content": [
+                                                {"type": "text", "data": {"text": f"🎵 歌曲：{song_info['song_name']} - {song_info['song_singer']}"}},
+                                            ]
+                                        },
+                                        {
+                                            "content": [
+                                                {"type": "text", "data": {"text": f"📱 备用下载链接：\n{music_url}"}},
+                                            ]
+                                        },
+                                        {
+                                            "content": [
+                                                {"type": "text", "data": {"text": f"🔗 在线试听链接：\n{link_}"}},
+                                            ]
+                                        }
+                                    ]
+
+                                    # 发送合并转发消息
+                                    forward_result = await self.forward_message_sender.send_forward(
+                                        group_id=int(target_id),
+                                        messages=messages,
+                                        prompt="🎵 音乐链接",
+                                        summary="音乐下载链接",
+                                        source="musicLink",
+                                        nickname="musicLink",
+                                        mode="multi"
+                                    )
+
+                                    if not forward_result.get('success'):
+                                        # 合并转发发送失败，回退到普通消息
+                                        await event_context.reply(
+                                            platform_message.MessageChain([
+                                                platform_message.Plain(text=f"✅ 音乐卡片已发送\n"),
+                                                platform_message.Plain(text=f"📱 备用下载链接：{music_url}\n"),
+                                            ])
+                                        )
+                                else:
+                                    # 私聊使用普通消息
+                                    await event_context.reply(
+                                        platform_message.MessageChain([
+                                            platform_message.Plain(text=f"✅ 音乐卡片已发送\n"),
+                                            platform_message.Plain(text=f"📱 备用下载链接：{music_url}\n"),
+                                        ])
+                                    )
                             else:
                                 # 卡片发送失败，回退到传统方式
                                 raise Exception(f"Music card send failed: {card_result.get('error', 'Unknown')}")
