@@ -4,7 +4,7 @@ metadata:
   author: sheetung
   name: musicLink
   repository: 'https://github.com/sheetung/musicLink-Plugin'
-  version: 0.2.6
+  version: 0.3.6
   description:
     en_US: downloads high quality music plugin
     zh_Hans: 下载高音质音乐插件
@@ -21,6 +21,13 @@ spec:
         zh_Hans: 'napcat http API 地址'
       required: false
       default: 'http://127.0.0.1:3000'
+    - name: onebot_access_token
+      type: string
+      label:
+        en_US: 'OneBot API Access Token'
+        zh_Hans: 'OneBot API 访问令牌'
+      required: false
+      default: ''
   components:
     EventListener:
       fromDirs:

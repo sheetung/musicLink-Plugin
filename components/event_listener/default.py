@@ -31,18 +31,18 @@ class DefaultEventListener(EventListener):
         # 初始化音乐卡片发送器
         # 可以从环境变量或配置文件读取NapCat配置
         self.napcat_http_url = self.plugin.get_config().get('napcat_url', self.napcat_http_url)
+        self.onebot_access_token = self.plugin.get_config().get("onebot_access_token", "")
         napcat_url = os.getenv('NAPCAT_HTTP_URL', self.napcat_http_url)
-        napcat_token = os.getenv('NAPCAT_ACCESS_TOKEN', self.napcat_access_token)
 
         self.music_card_sender = MusicCardSender(
             http_url=napcat_url,
-            access_token=napcat_token
+            access_token=self.onebot_access_token if self.onebot_access_token else None
         )
 
         # 初始化合并转发消息发送器
         self.forward_message_sender = ForwardMessageSender(
             http_url=napcat_url,
-            access_token=napcat_token
+            access_token=self.onebot_access_token if self.onebot_access_token else None
         )
         
         @self.handler(events.PersonMessageReceived)
