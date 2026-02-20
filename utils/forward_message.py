@@ -32,20 +32,20 @@ class ForwardMessageSender:
 
     async def send_forward(
         self,
-        group_id: int,
         messages: List[Dict],
         prompt: str = "聊天记录",
         summary: str = "查看消息",
         source: str = "聊天记录",
         user_id: str = "10000",
         nickname: str = "消息助手",
-        mode: str = "multi"
+        mode: str = "multi",
+        group_id: Optional[int] = None,
+        target_user_id: Optional[int] = None
     ) -> Dict[str, any]:
         """
         发送合并转发消息
 
         Args:
-            group_id: 目标群号
             messages: 消息列表，每个消息包含content字段
             prompt: 转发卡片标题（显示在聊天列表）
             summary: 转发卡片摘要（显示在聊天列表下方）
@@ -55,10 +55,18 @@ class ForwardMessageSender:
             mode: 消息模式
                 - "single": 单节点模式，所有消息合并到一个节点内
                 - "multi": 多节点模式，每条消息作为独立节点（默认）
+            group_id: 目标群号（群聊时使用）
+            target_user_id: 目标用户QQ号（私聊时使用）
 
         Returns:
             API响应结果
         """
+        if not group_id and not target_user_id:
+            return {
+                "success": False,
+                "error": "必须指定 group_id 或 target_user_id"
+            }
+
         # 构建消息节点
         if mode == "single":
             nodes = self._build_single_node(messages, user_id, nickname)
@@ -72,12 +80,17 @@ class ForwardMessageSender:
 
         # 构建请求数据
         message_data = {
-            "group_id": group_id,
             "messages": nodes,
             "prompt": prompt,
             "summary": formatted_summary,
             "source": source
         }
+
+        # 根据目标类型添加对应参数
+        if group_id:
+            message_data["group_id"] = group_id
+        else:
+            message_data["user_id"] = target_user_id
 
         # 发送HTTP请求
         async with aiohttp.ClientSession() as session:
